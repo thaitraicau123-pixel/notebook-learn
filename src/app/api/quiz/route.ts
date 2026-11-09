@@ -1,0 +1,7 @@
+import { NextRequest, NextResponse } from 'next/server'; import { SourceDocument } from '@/lib/types'; import { getApiKey, generateQuizWithGemini } from '@/lib/gemini'; import { INITIAL_QUIZ } from '@/lib/sample-data'; export async function POST(req: NextRequest) { try {
+const { sources, count = 4 } = (await req.json()) as { sources: SourceDocument[]; count?: number }; const selectedSources = sources?.filter((s) => s.selected) || []; if (selectedSources.length === 0) { return NextResponse.json(
+{ error: 'Vui lòng chọn ít nhất một tài liệu nguồn.' }, { status: 400 } ); } const apiKey = getApiKey(req.headers.get('x-gemini-key')); const combinedText = selectedSources
+.map((s) => `### Tài liệu: ${s.name}\n${s.content}`)
+.join('\n\n---\n\n'); if (!apiKey) { return NextResponse.json({ quiz: INITIAL_QUIZ, isMock: true, message: 'Chưa có Gemini API Key. Đang hiển thị bộ câu hỏi trắc nghiệm mẫu.', }); } try { const quiz = await generateQuizWithGemini(combinedText, count, apiKey); return NextResponse.json({ quiz, isMock: false }); } catch (apiErr) {
+console.error('Gemini quiz error:', apiErr); return NextResponse.json({ quiz: INITIAL_QUIZ, isMock: true, warning: 'Gemini API gặp sự cố, hiển thị trắc nghiệm dự phòng.', }); } } catch (error) { console.error('Quiz route error:', error); return NextResponse.json(
+{ error: 'Lỗi xử lý yêu cầu tạo trắc nghiệm' }, { status: 500 } ); } }

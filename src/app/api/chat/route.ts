@@ -1,0 +1,10 @@
+import { NextRequest, NextResponse } from 'next/server'; import { SourceDocument, ChatMessage, Citation } from '@/lib/types'; import { getApiKey, chatWithSourcesWithGemini } from '@/lib/gemini'; export async function POST(req: NextRequest) { try { const { messages, sources } = (await req.json()) as { messages: ChatMessage[];
+sources: SourceDocument[]; }; const selectedSources = sources?.filter((s) => s.selected) || []; if (selectedSources.length === 0) { return NextResponse.json({ reply: 'Vui lòng chọn ít nhất một nguồn tài liệu bên cột trái để tôi có thể trả lời dựa trên tài liệu đó.', citations: [], }); }
+const lastUserMessage = messages[messages.length - 1]?.content || ''; const apiKey = getApiKey(req.headers.get('x-gemini-key')); const combinedText = selectedSources
+.map((s) => `### Tài liệu: ${s.name}\n${s.content}`)
+.join('\n\n---\n\n'); if (!apiKey) { const citations: Citation[] = [
+{ sourceName: selectedSources[0].name, quote: selectedSources[0].content.slice(0, 180) + '...', relevance: 'Phần mở đầu', }, ]; return NextResponse.json({ reply: `Dựa trên tài liệu **${selectedSources[0].name}**:\n\n` +
+`Bạn vừa hỏi: *"${lastUserMessage}"*\n\n` +
+`💡 **Gợi ý từ tài liệu**: Để tận dụng sức mạnh phân tích sâu toàn bộ nội dung PDF/DOCX của bạn bằng mô hình Trí Tuệ Nhân Tạo AI Deep Intelligence mới nhất, bạn hãy bấm vào nút **"Cài đặt API Key"** ở góc trên nhé!`, citations, isMock: true, }); } try { const result = await chatWithSourcesWithGemini(messages, combinedText, apiKey);
+return NextResponse.json(result); } catch (apiErr) { console.error('Chat AI error:', apiErr); return NextResponse.json(
+{ reply: 'Đã xảy ra lỗi khi kết nối với máy chủ AI: ' + (apiErr instanceof Error ? apiErr.message : String(apiErr)), citations: [], }, { status: 502 } ); } } catch (error) { console.error('Chat route error:', error); return NextResponse.json({ error: 'Lỗi máy chủ khi xử lý hội thoại' }, { status: 500 }); } }

@@ -1,0 +1,7 @@
+import { NextRequest, NextResponse } from 'next/server'; import { SourceDocument } from '@/lib/types'; import { getApiKey, generateSlideDeckWithGemini } from '@/lib/gemini'; import { INITIAL_SLIDE_DECK } from '@/lib/sample-data'; export async function POST(req: NextRequest) { try {
+const { sources } = (await req.json()) as { sources: SourceDocument[] }; const selectedSources = sources?.filter((s) => s.selected) || []; if (selectedSources.length === 0) { return NextResponse.json(
+{ error: 'Vui lòng chọn ít nhất một tài liệu nguồn.' }, { status: 400 } ); } const apiKey = getApiKey(req.headers.get('x-gemini-key')); const combinedText = selectedSources
+.map((s) => `### Tài liệu: ${s.name}\n${s.content}`)
+.join('\n\n---\n\n'); if (!apiKey) { return NextResponse.json({ slides: INITIAL_SLIDE_DECK, isMock: true, message: 'Chưa có Gemini API Key. Đang hiển thị bộ Slide thuyết trình mẫu.', }); } try { const slides = await generateSlideDeckWithGemini(combinedText, apiKey); return NextResponse.json({ slides, isMock: false }); } catch (apiErr) {
+console.error('Gemini slides error:', apiErr); return NextResponse.json({ slides: INITIAL_SLIDE_DECK, isMock: true, warning: 'Gemini API gặp sự cố, hiển thị slide dự phòng.', }); } } catch (error) { console.error('Slides route error:', error); return NextResponse.json(
+{ error: 'Lỗi xử lý tạo slide thuyết trình' }, { status: 500 } ); } }

@@ -1,0 +1,7 @@
+import { NextRequest, NextResponse } from 'next/server'; import { SourceDocument } from '@/lib/types'; import { getApiKey, generateFlashcardsWithGemini } from '@/lib/gemini'; import { INITIAL_FLASHCARDS } from '@/lib/sample-data'; export async function POST(req: NextRequest) { try {
+const { sources, count = 6 } = (await req.json()) as { sources: SourceDocument[]; count?: number }; const selectedSources = sources?.filter((s) => s.selected) || []; if (selectedSources.length === 0) { return NextResponse.json(
+{ error: 'Vui lòng chọn ít nhất một tài liệu nguồn.' }, { status: 400 } ); } const apiKey = getApiKey(req.headers.get('x-gemini-key')); const combinedText = selectedSources
+.map((s) => `### Tài liệu: ${s.name}\n${s.content}`)
+.join('\n\n---\n\n'); if (!apiKey) { return NextResponse.json({ flashcards: INITIAL_FLASHCARDS, isMock: true, message: 'Chưa có Gemini API Key. Đang hiển thị bộ thẻ Flashcard mẫu.', }); } try { const flashcards = await generateFlashcardsWithGemini(combinedText, count, apiKey); return NextResponse.json({ flashcards, isMock: false });
+} catch (apiErr) { console.error('Gemini flashcards error:', apiErr); return NextResponse.json({ flashcards: INITIAL_FLASHCARDS, isMock: true, warning: 'Gemini API gặp sự cố, hiển thị bộ thẻ dự phòng.', }); } } catch (error) { console.error('Flashcards route error:', error); return NextResponse.json(
+{ error: 'Lỗi xử lý yêu cầu tạo flashcards' }, { status: 500 } ); } }

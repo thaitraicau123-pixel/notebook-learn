@@ -1,0 +1,2 @@
+import { NextRequest, NextResponse } from 'next/server'; import { notebookDb } from '@/lib/db'; import { getClientIdFromReq } from '@/lib/client-id'; export const dynamic = 'force-dynamic'; export async function GET(req: NextRequest) { try { const clientId = getClientIdFromReq(req); const status = notebookDb.getStatus(clientId);
+return NextResponse.json({ success: true, ...status }); } catch (error: any) { return NextResponse.json({ success: false, error: error.message }, { status: 500 }); } }

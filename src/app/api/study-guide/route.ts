@@ -1,0 +1,8 @@
+import { NextRequest, NextResponse } from 'next/server'; import { SourceDocument } from '@/lib/types'; import { getApiKey, generateStudyGuideWithGemini } from '@/lib/gemini'; import { INITIAL_STUDY_GUIDE } from '@/lib/sample-data'; export async function POST(req: NextRequest) { try {
+const { sources } = (await req.json()) as { sources: SourceDocument[] }; const selectedSources = sources?.filter((s) => s.selected) || []; if (selectedSources.length === 0) { return NextResponse.json(
+{ error: 'Chưa có tài liệu nào được chọn để tạo cẩm nang học tập.' }, { status: 400 } ); } const apiKey = getApiKey(req.headers.get('x-gemini-key')); const combinedText = selectedSources
+.map((s) => `### Tài liệu: ${s.name}\n${s.content}`)
+.join('\n\n---\n\n'); if (!apiKey) { return NextResponse.json({ studyGuide: INITIAL_STUDY_GUIDE, isMock: true, message: 'Bạn chưa nhập Google Gemini API Key. Đang hiển thị bản phân tích mẫu. Hãy nhập API key ở góc trên để phân tích tài liệu của bạn bằng Gemini!', }); } try {
+const studyGuide = await generateStudyGuideWithGemini(combinedText, apiKey); return NextResponse.json({ studyGuide, isMock: false }); } catch (apiErr) { console.error('Gemini error:', apiErr); return NextResponse.json({ studyGuide: INITIAL_STUDY_GUIDE, isMock: true,
+warning: 'Gemini API gặp sự cố kết nối, đang dùng bản tóm tắt dự phòng: ' + (apiErr instanceof Error ? apiErr.message : String(apiErr)), }); } } catch (error) { console.error('Study guide route error:', error); return NextResponse.json(
+{ error: 'Lỗi xử lý yêu cầu tạo tóm tắt' }, { status: 500 } ); } }
